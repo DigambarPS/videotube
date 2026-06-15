@@ -66,4 +66,84 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, createdUser, "User Registered Successfully"));
 });
 
-export { registerUser };
+const loginUser = asyncHandler(async (req,res,next)=>{
+  const { username, email, password } = req.body
+
+  if(username=="" || password=="" || email=="")
+  {
+    throw new ApiError(401, "Invalid credentials")
+  }
+
+  const user = await User.findOne(
+    {
+      $or: [{username}, {email}]
+    }
+  )
+
+  if(!user)
+  {
+    throw new ApiError(404, "Invalid credentials")
+  }
+
+  const isValidPassword = user.isPasswordCorrect(password,user.password)
+  if(!isValidPassword)
+  {
+    throw new ApiError(401, "Invalid credentials")
+  }
+
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id)
+
+  const loggedInUser = await User.findById(user_id).select(
+    "-password -refreshToken"
+  )
+
+  const options = {
+    httpOnly: true,
+    secure: true
+  }
+
+  res.status(200)
+  .cookie('accessToken',accessToken,options)
+  .cookie('refreshToken', refreshToken,options)
+  .json(
+    new ApiResponse(200,{user: loggedInUser, accessToken, refreshToken},"User logged in Successfully")
+  )
+})
+
+const logoutUser = asyncHandler(async (req,res) =>{
+    const user = res.user;
+    await User.findByIdAndUpdate(
+      req.user._id,
+      {
+      $set:{refreshToken:undefined}
+      },
+      {
+        new: true
+      }
+  )
+
+  const options = {
+    httpOnly:true,
+    secure:true
+  }
+
+  res.status(200)
+  .clearCookie("accessToken",options)
+  .clearCookie("refreshToken",options)
+  .json(new ApiResponse(200, {},"User logged Out Successfully"))
+})
+
+const generateAccessAndRefreshToken = (userId) =>{
+    const user = await User.findById(userId)
+    const accessToken = user.generateAccessToken()
+    const refreshToken = user.generateRefreshToken()
+    user.refreshToken = refreshToken
+    user.save()
+    return { accessToken , refreshToken }
+}
+
+export { 
+  registerUser,
+  loginUser,
+  logoutUser
+ };
