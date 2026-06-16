@@ -176,6 +176,42 @@ const renewRefreshAndAccessToken = asyncHandler( async (req,res) => {
   }
 })
 
+//change password
+const changeUserPassword = asyncHandler( async (req,res) =>{
+  const { oldPassword, newPassword } = req.body
+
+  if(oldPassword == "" || newPassword == "")
+  {
+    throw new ApiError(401, "All fields are required")
+  }
+  
+  const user = await User.findById(req.user?._id)
+
+  if(!user)
+  {
+    throw new ApiError(401, "invalid user")
+  }
+  
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+
+  if(!isPasswordCorrect)
+  {
+    throw new ApiError(401, "Old Password is not correct")
+  }
+
+  user.password = newPassword
+  await user.save({validateBeforeSave:false})
+
+  return res.status(200)
+  .json( new ApiResponse(200, {}, "Password changed successfully"))
+})
+
+//update user details
+
+//update avatar image
+
+//update cover image
+
 const generateAccessAndRefreshToken = async (userId) =>{
     const user = await User.findById(userId)
     const accessToken = user.generateAccessToken()
