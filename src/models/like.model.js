@@ -2,9 +2,17 @@ import mongoose, { Schema } from "mongoose"
 
 
 const likeSchema = new Schema({
-    owner:{
+    likedBy:{
         type: Schema.Types.ObjectId,
         ref: "User"
+    },
+    comment:{
+        type: Schema.Types.ObjectId,
+        ref: "Comment"
+    },
+    tweet:{
+        type: Schema.Types.ObjectId,
+        ref: "Tweet"
     },
     video:{
         type: Schema.Types.ObjectId,
