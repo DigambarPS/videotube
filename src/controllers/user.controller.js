@@ -440,6 +440,7 @@ export {
   loginUser,
   logoutUser,
   renewRefreshAndAccessToken,
+  changeUserPassword,
   updateUserDetails,
   updateAvatarImage,
   updateCoverImage,
