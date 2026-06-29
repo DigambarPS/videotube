@@ -3,7 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import jwt from "jsonwebtoken"
 
-const JWTVerify = asyncHandler(async (req,res,next) =>{
+export const verifyJWT = asyncHandler(async (req,res,next) =>{
     try {
         const token = req.cookies?.accessToken || req.header('Authorization')?.replace("Bearer ","")
         
@@ -28,5 +28,3 @@ const JWTVerify = asyncHandler(async (req,res,next) =>{
         throw new ApiError(500, "Something went wrong while verifying Token")   
     }
 })
-
-export default JWTVerify

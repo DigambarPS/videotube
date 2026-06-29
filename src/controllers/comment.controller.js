@@ -126,9 +126,9 @@ const updateComment = asyncHandler(async (req, res) => {
     throw new ApiError(404, "content is mandatory");
   }
 
-  const comment = await Comment.findById(commentId);
+  const commentCheck = await Comment.findById(commentId);
 
-  if (!comment) {
+  if (!commentCheck) {
     throw new ApiError(400, "commentId is invalid");
   }
 
@@ -159,9 +159,9 @@ const deleteComment = asyncHandler(async (req, res) => {
     throw new ApiError(404, "commentId is mandatory");
   }
 
-  const comment = await Comment.findById(commentId);
+  const commentCheck = await Comment.findById(commentId);
 
-  if (!comment) {
+  if (!commentCheck) {
     throw new ApiError(400, "commentId is invalid");
   }
 

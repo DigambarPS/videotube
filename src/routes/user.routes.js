@@ -13,7 +13,7 @@ import {
   getUserWatchHistory
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
-import JWTVerify from "../middlewares/jwtVerify.middleware.js";
+import { verifyJWT } from "../middlewares/auth.middleware.js"
 
 const router = Router();
 
@@ -34,11 +34,11 @@ router.route("/register").post(
 router.route("/login").post(loginUser);
 
 //secured routes
-router.route("/logout").post(JWTVerify, logoutUser);
-router.route("/change-password").post(JWTVerify, changeUserPassword);
-router.route("/update-details").patch(JWTVerify, updateUserDetails);
+router.route("/logout").post(verifyJWT, logoutUser);
+router.route("/change-password").post(verifyJWT, changeUserPassword);
+router.route("/update-details").patch(verifyJWT, updateUserDetails);
 router.route("/update-avatar").patch(
-  JWTVerify,
+  verifyJWT,
   upload.fields({
     name: "avatar",
     maxCount: 1,
@@ -47,18 +47,18 @@ router.route("/update-avatar").patch(
 );
 
 router.route("/update-coverImage").patch(
-  JWTVerify,
+  verifyJWT,
   upload.fields({
     name: "coverImage",
     maxCount: 1,
   }),
   updateCoverImage
 );
-router.route("/update-coverImage").patch(JWTVerify, updateUserDetails);
+router.route("/update-coverImage").patch(verifyJWT, updateUserDetails);
 router.route("/renew-access-token").post(renewRefreshAndAccessToken);
-router.route("/get-current-user").get(JWTVerify, getCurrentUser);
-router.route("/c/:username").get(JWTVerify, getUserChannelProfile);
-router.route("/history").get(JWTVerify, getUserWatchHistory);
+router.route("/get-current-user").get(verifyJWT, getCurrentUser);
+router.route("/c/:username").get(verifyJWT, getUserChannelProfile);
+router.route("/history").get(verifyJWT, getUserWatchHistory);
 
 
 export default router;
