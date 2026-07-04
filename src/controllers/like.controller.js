@@ -87,6 +87,10 @@ const toggleLikeAndGetLikeCount = async (id, type, req, res) => {
     throw new ApiError(400, `${type}Id is mandatory`);
   }
 
+  if (!isValidObjectId(id)) {
+    throw new ApiError(400, `${type}Id is invalid`);
+  }
+
   const finalFilter = { likedBy: req.user?._id, [type]: id };
 
   const typeRecord = await model.findById(id);

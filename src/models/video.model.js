@@ -34,8 +34,12 @@ const videoSchema = new Schema(
         owner:{
             type: Schema.Types.ObjectId,
             ref: "User"
-        }
-
+        },
+        cl_public_id:{
+            type:String,
+            required:true,
+            trim:true
+        },
     },
     {
         timestamps: true

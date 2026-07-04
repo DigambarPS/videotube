@@ -4,7 +4,7 @@ import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { uploadToCloudinary } from "../utils/cloudinary.js";
+import { deleteFromCloudinary, uploadToCloudinary } from "../utils/cloudinary.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
@@ -51,6 +51,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
     isPublished: true,
     views: 0,
     owner: req.user?._id,
+    cl_public_id: videoUpload.public_id
   });
 
   if (!video) {
@@ -156,7 +157,7 @@ const deleteVideo = asyncHandler(async (req, res) => {
     throw new ApiError(401, 'videoId is mandatory')
   }
   
-  const videoCheck = await Video.exists({_id : videoId})
+  const videoCheck = await Video.findById(videoId)
 
   if(!videoCheck)
   {
@@ -170,6 +171,13 @@ const deleteVideo = asyncHandler(async (req, res) => {
     throw new ApiError(500, 'Something went wrong while deleting video')
   }
 
+  const videoCl = await deleteFromCloudinary(videoCheck.cl_public_id,'video')
+
+  if(!videoCl)
+  {
+    throw new ApiError(500, 'something went wrong while deleting video from cloudinary')
+  }
+
   return res
   .status(200)
   .json(
@@ -179,7 +187,7 @@ const deleteVideo = asyncHandler(async (req, res) => {
         'Video is deleted successfully'
     )
   )
-
+  
 });
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
