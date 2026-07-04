@@ -4,6 +4,7 @@ import {Video} from "../models/video.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
+import { User } from "../models/user.model.js"
 
 
 const createPlaylist = asyncHandler(async (req, res) => {
@@ -42,6 +43,39 @@ const createPlaylist = asyncHandler(async (req, res) => {
 const getUserPlaylists = asyncHandler(async (req, res) => {
     const {userId} = req.params
     //TODO: get user playlists
+    if(!userId)
+    {
+        throw new ApiError(400, "userId is required")
+    }
+
+    if(!isValidObjectId(userId))
+    {
+        throw new ApiError(400, "userId is invalid")
+    }
+
+    const userCheck = await User.exists({_id : userId})
+
+    if(!userCheck)
+    {
+        throw new ApiError(404, "user is not found")
+    }
+
+    const userPlaylists = await Playlist.find({owner:userId})
+
+    if(!userPlaylists)
+    {
+        throw new ApiError(500, "Something went wrong while fetching playlists")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            userPlaylists,
+            "User's playlists have been fetched successfully"
+        )
+    )
 })
 
 const getPlaylistById = asyncHandler(async (req, res) => {
@@ -49,7 +83,12 @@ const getPlaylistById = asyncHandler(async (req, res) => {
     //TODO: get playlist by id
     if(!playlistId)
     {
-        throw new ApiError(401, 'playlistId is required')
+        throw new ApiError(400, 'playlistId is required')
+    }
+
+    if(!isValidObjectId(playlistId))
+    {
+        throw new ApiError(400, 'playlistId is invalid')
     }
 
     const playlist = await Playlist.findById(playlistId)
@@ -75,21 +114,31 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
 
     if(!playlistId || !videoId)
     {
-        throw new ApiError(401, 'playlistId and videoId are required')
+        throw new ApiError(400, 'playlistId and videoId are required')
+    }
+
+    if(!isValidObjectId(playlistId))
+    {
+        throw new ApiError(400, 'playlistId is invalid')
+    }
+
+    if(!isValidObjectId(videoId))
+    {
+        throw new ApiError(400, 'videoId is invalid')
     }
 
     const videoCheck = await Video.exists({_id:videoId})
 
     if(!videoCheck)
     {
-        throw new ApiError(403, 'video not found')
+        throw new ApiError(404, 'video not found')
     }
 
     const playlistCheck = await Playlist.findById(playlistId)
 
     if(!playlistCheck)
     {
-        throw new ApiError(403, 'Playlist not found')
+        throw new ApiError(404, 'Playlist not found')
     }
     
     if(playlistCheck.videos.includes(videoId))
@@ -122,26 +171,36 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
 
     if(!playlistId || !videoId)
     {
-        throw new ApiError(401, 'playlistId and videoId are required')
+        throw new ApiError(400, 'playlistId and videoId are required')
+    }
+
+    if(!isValidObjectId(playlistId))
+    {
+        throw new ApiError(400, 'playlistId is invalid')
+    }
+
+    if(!isValidObjectId(videoId))
+    {
+        throw new ApiError(400, 'videoId is invalid')
     }
 
     const videoCheck = await Video.exists({_id:videoId})
 
     if(!videoCheck)
     {
-        throw new ApiError(403, 'video not found')
+        throw new ApiError(404, 'video not found')
     }
 
     const playlistCheck = await Playlist.findById(playlistId)
 
     if(!playlistCheck)
     {
-        throw new ApiError(403, 'Playlist not found')
+        throw new ApiError(404, 'Playlist not found')
     }
     
     if(!playlistCheck.videos.includes(videoId))
     {
-        throw new ApiError(401, 'Video is not present in playlist')
+        throw new ApiError(404, 'Video is not present in playlist')
     }
 
     playlistCheck.videos = playlistCheck.videos.filter(id => id.toString() !== videoId)
@@ -168,14 +227,19 @@ const deletePlaylist = asyncHandler(async (req, res) => {
     
     if(!playlistId)
     {
-        throw new ApiError(401, 'playlistId is required')
+        throw new ApiError(400, 'playlistId is required')
+    }
+
+    if(!isValidObjectId(playlistId))
+    {
+        throw new ApiError(400, 'playlistId is invalid')
     }
 
     const playlistCheck = await Playlist.findById(playlistId)
 
     if(!playlistCheck)
     {
-        throw new ApiError(403, 'Playlist not found')
+        throw new ApiError(404, 'Playlist not found')
     }
 
     const playlistDelete = await Playlist.findByIdAndDelete(playlistId)
@@ -202,7 +266,12 @@ const updatePlaylist = asyncHandler(async (req, res) => {
     
     if(!playlistId || !name || !description)
     {
-        throw new ApiError(401, 'playlistId , title and description is required')
+        throw new ApiError(400, 'playlistId , title and description is required')
+    }
+
+    if(!isValidObjectId(playlistId))
+    {
+        throw new ApiError(400, 'playlistId is invalid')
     }
 
     const playlist = await Playlist.findById(playlistId)
@@ -216,7 +285,7 @@ const updatePlaylist = asyncHandler(async (req, res) => {
 
     if(playlistCheck)
     {
-        throw new ApiError(403, `Playlist with ${name} already exists in user's playlists`)
+        throw new ApiError(404, `Playlist with ${name} already exists in user's playlists`)
     }
 
     playlist.name = name
