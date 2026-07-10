@@ -39,22 +39,21 @@ router.route("/change-password").post(verifyJWT, changeUserPassword);
 router.route("/update-details").patch(verifyJWT, updateUserDetails);
 router.route("/update-avatar").patch(
   verifyJWT,
-  upload.fields({
-    name: "avatar",
-    maxCount: 1,
-  }),
+  upload.fields([{
+      name: "avatar",
+      maxCount: 1,
+  }]),
   updateAvatarImage
 );
 
 router.route("/update-coverImage").patch(
   verifyJWT,
-  upload.fields({
+  upload.fields([{
     name: "coverImage",
     maxCount: 1,
-  }),
+  }]),
   updateCoverImage
 );
-router.route("/update-coverImage").patch(verifyJWT, updateUserDetails);
 router.route("/renew-access-token").post(renewRefreshAndAccessToken);
 router.route("/get-current-user").get(verifyJWT, getCurrentUser);
 router.route("/c/:username").get(verifyJWT, getUserChannelProfile);

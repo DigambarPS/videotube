@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js";
 import { uploadToCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const registerUser = asyncHandler(async (req, res) => {
   const { username, email, fullName, password } = req.body;
@@ -82,7 +83,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
     throw new ApiError(404, "Invalid credentials");
   }
 
-  const isValidPassword = user.isPasswordCorrect(password, user.password);
+  const isValidPassword = await user.isPasswordCorrect(password);
   if (!isValidPassword) {
     throw new ApiError(401, "Invalid credentials");
   }
@@ -228,14 +229,14 @@ const updateUserDetails = asyncHandler(async (req, res) => {
   user.email = email;
   user.save({ validateBeforeSave: false });
 
-  return req
+  return res
     .status(200)
     .json(new ApiResponse(200, user, "User Details updated successfully"));
 });
 
 //update avatar image
 const updateAvatarImage = asyncHandler(async (req, res) => {
-  const avatarLocalPath = req.file?.avatar?.path;
+  const avatarLocalPath = req.files?.avatar[0]?.path;
 
   if (!avatarLocalPath) {
     throw new ApiError(401, "Avatar image is required");
@@ -266,15 +267,15 @@ const updateAvatarImage = asyncHandler(async (req, res) => {
 
 //update cover image
 const updateCoverImage = asyncHandler(async (req, res) => {
-  const coverLocalPath = req.file?.avatar?.path;
+  const coverLocalPath = req.files?.coverImage[0]?.path;
 
   if (!coverLocalPath) {
-    throw new ApiError(401, "Avatar image is required");
+    throw new ApiError(401, "coverImage image is required");
   }
 
   const coverImage = await uploadToCloudinary(coverLocalPath);
 
-  if (!avatar) {
+  if (!coverImage) {
     throw new ApiError(500, "Error while uploading Cover image to cloudinary");
   }
 
@@ -390,7 +391,7 @@ const getUserWatchHistory = asyncHandler(async(req,res)=>{
     const user = await User.aggregate([
       {
         $match:{
-          _id : new mongoose.Schema.Types.ObjectId(req.user?._id)
+          _id : new mongoose.Types.ObjectId(req.user?._id)
         },
         
       },
