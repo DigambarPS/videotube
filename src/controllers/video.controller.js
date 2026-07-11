@@ -13,7 +13,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
     limit : limit
   }
 
-  let videos = Video.aggregatePaginate(Video.find({isPublished:true}), pageOptions)
+  // let videos = Video.aggregatePaginate(Video.find({isPublished:true}), pageOptions)
 
   if(!sortBy)
   {
@@ -46,8 +46,8 @@ const publishAVideo = asyncHandler(async (req, res) => {
     throw new ApiError(401, "title and description are mandatory fields");
   }
 
-  const getLocalVideoPath = req.files[0]?.videoFile[0]?.path;
-  const getLocalThumbnailPath = req.files[0]?.thumbnail[0]?.path;
+  const getLocalVideoPath = req.files?.videoFile[0]?.path;
+  const getLocalThumbnailPath = req.files?.thumbnail[0]?.path;
 
   if (!getLocalVideoPath) {
     throw new ApiError(401, "Videofile is mandatory");
@@ -97,10 +97,10 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new ApiError(401, "videoId is mandatory");
   }
 
-  const video = Video.findById(videoId);
+  const video = await Video.findById(videoId);
 
   if (!video) {
-    throw new ApiError(403, "video not found");
+    throw new ApiError(404, "video not found");
   }
 
   return res
@@ -130,7 +130,7 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(403, "video not found");
   }
 
-  const thumbnailLocalPath = req.file.thumbnail[0]?.path;
+  const thumbnailLocalPath = req.files?.thumbnail[0]?.path;
 
   let thumbnailUpload;
   if (thumbnailLocalPath) {
@@ -141,7 +141,7 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Something went wrong while uploading thumbnail");
   }
 
-  updateVideoOptions = {
+  let updateVideoOptions = {
     title:title,
     description: description
   }
@@ -156,7 +156,7 @@ const updateVideo = asyncHandler(async (req, res) => {
         $set: updateVideoOptions
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 
@@ -232,10 +232,9 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'video is not found')
   }
 
-  const video = await Video.findByIdAndUpdate(videoId,
-    [{$set:{isPublished: { $not: "$isPublished" }}}],
-    {new : true}
-  )
+  const video = await Video.findByIdAndUpdate(videoId)
+  video.isPublished = !video.isPublished
+  await video.save()
 
   return res
   .status(200)
