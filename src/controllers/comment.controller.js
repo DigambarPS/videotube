@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, {Types} from "mongoose";
 import { Comment } from "../models/comment.model.js";
 import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -36,7 +36,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
   const videoComments = await Video.aggregatePaginate(Video.aggregate([
     {
       $match: {
-        _id: videoId,
+        _id: new Types.ObjectId(videoId),
       },
     },
     {
@@ -49,9 +49,9 @@ const getVideoComments = asyncHandler(async (req, res) => {
           {
             $lookup: {
               from: "users",
-              localField: "_id",
-              foreignField: "owner",
-              as: "commentors",
+              localField: "owner",
+              foreignField: "_id",
+              as: "commentor",
               pipeline: [
                 {
                   $project: {
@@ -61,7 +61,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
                   },
                 },
               ],
-            },            
+            },                
           },
         ],
       },
