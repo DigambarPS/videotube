@@ -7,14 +7,14 @@ import {asyncHandler} from "../utils/asyncHandler.js"
 
 const createTweet = asyncHandler(async (req, res) => {
     //TODO: create tweet
-    const content = req.body
+    const {content} = req.body
 
     if(!content)
     {
         throw new ApiError(401, 'content is mandatory')
     }
 
-    const tweet = Tweet.create({
+    const tweet = await Tweet.create({
         content:content,
         owner:req.user?._id
     })
@@ -96,12 +96,12 @@ const updateTweet = asyncHandler(async (req, res) => {
         throw new ApiError(404, 'Tweet not found')
     }
 
-    const tweetUpdate = Tweet.findByIdAndUpdate(tweetId,
+    const tweetUpdate = await Tweet.findByIdAndUpdate(tweetId,
         {
             $set: { content : content }
         },
         {
-            new : true
+            returnDocument : "after"
         }
     )
 
@@ -123,7 +123,7 @@ const updateTweet = asyncHandler(async (req, res) => {
 
 const deleteTweet = asyncHandler(async (req, res) => {
     //TODO: delete tweet
-    const { tweetId } = body.params
+    const { tweetId } = req.params
 
     if(!tweetId)
     {
@@ -137,7 +137,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
 
     const tweetCheck = await Tweet.exists({_id:tweetId})
 
-    if(tweetCheck)
+    if(!tweetCheck)
     {
         throw new ApiError(404, 'Tweet is not found')
     }
