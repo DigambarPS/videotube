@@ -16,6 +16,13 @@ const toggleSubscription = asyncHandler(async (req, res) => {
     throw new ApiError(400, "channelId is invalid");
   }
 
+  if (channelId == req.user?._id) {
+    throw new ApiError(
+      400,
+      "invalid action - user cannot subscribe to own channel"
+    );
+  }
+
   const channelCheck = await User.exists({ _id: channelId });
 
   if (!channelCheck) {
@@ -23,13 +30,13 @@ const toggleSubscription = asyncHandler(async (req, res) => {
   }
 
   const channelSubscription = await Subscription.exists({
-    owner: req.user?._id,
+    subscriber: req.user?._id,
     channel: channelId,
   });
 
   if (channelSubscription) {
-    deleteSubscription = await Subscription.deleteOne({
-      owner: req.user?._id,
+    const deleteSubscription = await Subscription.deleteOne({
+      subscriber: req.user?._id,
       channel: channelId,
     });
 
@@ -51,8 +58,8 @@ const toggleSubscription = asyncHandler(async (req, res) => {
       );
   }
 
-  addSubscription = await Subscription.create({
-    owner: req.user?._id,
+  const addSubscription = await Subscription.create({
+    subscriber: req.user?._id,
     channel: channelId,
   });
 
@@ -90,6 +97,9 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
 
   const channelSubscribers = await User.aggregate([
     {
+      $match: { _id: new mongoose.Types.ObjectId(channelId) },
+    },
+    {
       $lookup: {
         from: "subscriptions",
         localField: "_id",
@@ -97,20 +107,30 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
         as: "subscribers",
         pipeline: [
           {
-            $lookup: {
-              from: "users",
-              localField: "owner",
-              foreignField: "_id",
-              as: "subDetails",
-            },
+            $match: { channel: new mongoose.Types.ObjectId(channelId) },
           },
           {
-            $project: {
-              fullName: 1,
-              avatar: 1,
+            $lookup: {
+              from: "users",
+              localField: "subscriber",
+              foreignField: "_id",
+              as: "subDetails",
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
             },
           },
         ],
+      },
+    },
+    {
+      $project: {
+        subscribers: 1,
       },
     },
   ]);
@@ -132,17 +152,17 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
 
 // controller to return channel list to which user has subscribed
 const getSubscribedChannels = asyncHandler(async (req, res) => {
-  const { subscriberId } = req.params;
+  const { channelId } = req.params;
 
-  if (!subscriberId) {
-    throw new ApiError(400, "subscriberId is required");
+  if (!channelId) {
+    throw new ApiError(400, "channelId is required");
   }
 
-  if (!isValidObjectId(subscriberId)) {
-    throw new ApiError(400, "subscriberId is invalid");
+  if (!isValidObjectId(channelId)) {
+    throw new ApiError(400, "channelId is invalid");
   }
 
-  const subscriberCheck = await User.exists({ _id: subscriberId });
+  const subscriberCheck = await User.exists({ _id: channelId });
 
   if (!subscriberCheck) {
     throw new ApiError(404, "subscriber not found");
@@ -150,27 +170,39 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
 
   const getSubscribedChannel = await User.aggregate([
     {
+      $match: {
+        _id: new mongoose.Types.ObjectId(channelId),
+      },
+    },
+    {
       $lookup: {
         from: "subscriptions",
         localField: "_id",
-        foreignField: "owner",
+        foreignField: "subscriber",
         as: "subscribedTo",
         pipeline: [
           {
             $lookup: {
               from: "users",
-              localField: "owner",
+              localField: "channel",
               foreignField: "_id",
               as: "subscribedChannels",
-            },
-          },
-          {
-            $project: {
-              fullName: 1,
-              avatar: 1,
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
             },
           },
         ],
+      },
+    },
+    {
+      $project: {
+        subscribedTo: 1,
       },
     },
   ]);
