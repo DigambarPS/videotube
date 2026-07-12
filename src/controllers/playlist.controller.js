@@ -7,7 +7,7 @@ import {asyncHandler} from "../utils/asyncHandler.js"
 import { User } from "../models/user.model.js"
 
 
-const createPlaylist = asyncHandler(async (req, res) => {
+const createPlaylist = asyncHandler(async(req, res) => {
     const {name, description} = req.body
     
     if(!name || !description)
@@ -19,7 +19,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
 
     if(playlistCheck)
     {
-        throw new ApiError(401, `Playlist with ${name} already exists in user's playlist`)
+        throw new ApiError(401, `Playlist with name ${name} already exists in user's playlist`)
     }
 
     const playlist = await Playlist.create({name:name,description:description,owner:req.user?._id})
@@ -93,7 +93,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
 
     const playlist = await Playlist.findById(playlistId)
 
-    if(!playlistCheck)
+    if(!playlist)
     {
         throw new ApiError(403, 'Playlist not found')
     }
@@ -291,7 +291,7 @@ const updatePlaylist = asyncHandler(async (req, res) => {
     playlist.name = name
     playlist.description = description
 
-    const playlistUpdated = await Playlist.save()
+    const playlistUpdated = await playlist.save()
 
     if(!playlistUpdated)
     {
@@ -300,7 +300,7 @@ const updatePlaylist = asyncHandler(async (req, res) => {
 
     return res
     .status(200)
-    .jaon(
+    .json(
         new ApiResponse(
             200,
             playlistUpdated,
