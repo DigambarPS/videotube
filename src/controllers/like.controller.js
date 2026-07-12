@@ -27,7 +27,8 @@ const getLikedVideos = asyncHandler(async (req, res) => {
   //TODO: get all liked videos
   const likedVideos = await Like.aggregate([
     {
-      $match: { likedBy: req.user?._id },
+      $match: { likedBy: new mongoose.Types.ObjectId(req.user?._id), video: { $exists : true } },
+      
     },
     {
       $lookup: {
@@ -38,15 +39,11 @@ const getLikedVideos = asyncHandler(async (req, res) => {
       },
     },
     {
-      $project: {
-        videoFile: 1,
-        thumbnail: 1,
-        title: 1,
-        description: 1,
-        duration: 1,
-        views: 1,
-      },
-    },
+      $project:{
+        likedVideos:1,
+        _id:0
+      }
+    }
   ]);
 
   if (likedVideos.length === 0) {
