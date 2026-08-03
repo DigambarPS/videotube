@@ -7,20 +7,26 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { deleteFromCloudinary, uploadToCloudinary } from "../utils/cloudinary.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
+  const { page = 1, limit = 10, query, sortBy='createdAt', sortType='asc', userId } = req.query;
+  
   let pageOptions = {
     page : page,
     limit : limit
   }
 
-  // let videos = Video.aggregatePaginate(Video.find({isPublished:true}), pageOptions)
+  let filter = {isPublished:true}
+  if(query) filter.title = new RegExp(query,"i")
+  if(userId) filter.owner = userId
 
-  if(!sortBy)
+  let sort = {}
+  if(sortBy)
   {
-    videos = videos.sort({[sortBy] : sortType === 'asc'? 1 : -1})
+    sort[sortBy] = sortType === 'asc'? 1 : -1
   }
 
-  const videoList = await videos
+  let videos = await Video.aggregatePaginate(Video.aggregate([{$match:filter},{$sort:sort}]), pageOptions)
+  
+  const videoList = await videos;
   
   if(!videoList)
   {
