@@ -1,4 +1,4 @@
-## VideoTube Backend API
+## Video Publishing Backend API
 A full-featured YouTube-like backend API built with Node.js, Express, MongoDB, JWT, and Cloudinary.
 
 ### What I Built
