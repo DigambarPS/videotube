@@ -12,3 +12,6 @@ Node.js, Express, MongoDB, Mongoose, JWT, Cloudinary, Multer
 
 ### Live API Docs
 [[Postman Collection Link]](https://documenter.getpostman.com/view/36031786/2sBY4VJcrg)
+
+### Live Render Link
+[[Live Render Link]](https://video-publishing-api.onrender.com)
