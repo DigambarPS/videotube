@@ -23,7 +23,7 @@ const registerUser = asyncHandler(async (req, res) => {
   if (userExists) {
     throw new ApiError(409, "User with email or username already exists");
   }
-
+  console.log(req)
   const avatarLocalPath = req.files?.avatar[0]?.path;
   //const coverImageLocalPath = req.files?.coverImage[0]?.path;
 
@@ -100,6 +100,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
   const options = {
     httpOnly: true,
     secure: true,
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   };
 
   res
@@ -169,6 +170,7 @@ const renewRefreshAndAccessToken = asyncHandler(async (req, res) => {
     const options = {
       httpOnly: true,
       secure: true,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     };
 
     res
@@ -217,7 +219,7 @@ const changeUserPassword = asyncHandler(async (req, res) => {
 
 //update user details
 const updateUserDetails = asyncHandler(async (req, res) => {
-  const { fullName, email } = req.body;
+  const { fullName, email, about } = req.body;
 
   if (fullName == "" || email == "") {
     throw new ApiError(401, "all fields are required");
@@ -228,6 +230,7 @@ const updateUserDetails = asyncHandler(async (req, res) => {
   );
   user.fullName = fullName;
   user.email = email;
+  user.about = about;
   user.save({ validateBeforeSave: false });
 
   return res
@@ -313,16 +316,16 @@ const generateAccessAndRefreshToken = async (userId) => {
 };
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
-  const { username } = req.params;
+  const { channelId } = req.params;
 
-  if (!username) {
-    throw new ApiError(400, "Username not found");
+  if (!channelId) {
+    throw new ApiError(400, "channelId not found");
   }
 
   const channel = await User.aggregate([
     {
       $match: {
-        username: username.toLowerCase(),
+        _id: new mongoose.Types.ObjectId(channelId),
       },
     },
     {
@@ -342,12 +345,23 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       },
     },
     {
+      $lookup: {
+        from: "videos",
+        localField: "_id",
+        foreignField: "owner",
+        as: "videos",
+      },
+    },
+    {
       $addFields: {
         subscriberCount: {
           $size: "$subscribers",
         },
         channelSubscribedToCount: {
           $size: "$subscribedTo",
+        },
+        channelVideosCount: {
+          $size: "$videos",
         },
         isSubscribed: {
           $cond: {
@@ -369,6 +383,8 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         avatar: 1,
         coverImage: 1,
         email: 1,
+        about: 1,
+        channelVideosCount:1
       },
     },
   ]);
