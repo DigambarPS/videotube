@@ -1,4 +1,4 @@
-import mongoose, {Types} from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { Comment } from "../models/comment.model.js";
 import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -8,7 +8,12 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 const getVideoComments = asyncHandler(async (req, res) => {
   //TODO: get all comments for a video
   const { videoId } = req.params;
-  const { page = 1, limit = 10 } = req.query;
+  const {
+    page = 1,
+    limit = 10,
+    sortBy = "createdAt",
+    sortType = "asc",
+  } = req.query;
   //validation
   if (!videoId) {
     throw new ApiError(404, "videoId is mandatory");
@@ -30,53 +35,72 @@ const getVideoComments = asyncHandler(async (req, res) => {
 
   const options = {
     page: page,
-    limit: limit   
+    limit: limit,
   };
-  
-  const videoComments = await Video.aggregatePaginate(Video.aggregate([
-    {
-      $match: {
-        _id: new Types.ObjectId(videoId),
-      },
-    },
-    {
-      $lookup: {
-        from: "comments",
-        localField: "_id",
-        foreignField: "video",
-        as: "comments",
-        pipeline: [
-          {
-            $lookup: {
-              from: "users",
-              localField: "owner",
-              foreignField: "_id",
-              as: "commentor",
-              pipeline: [
-                {
-                  $project: {
-                    fullName: 1,
-                    username: 1,
-                    avatar: 1,
-                  },
-                },
-              ],
-            },                
-          },
-        ],
-      },
-    },
-  ]),options);
 
-  if(!videoComments)
-  {
-    throw new ApiError(500, "Something went wrong while fetching comments of video")
+  let sort = {};
+  if (sortBy) {
+    sort[sortBy] = sortType === "asc" ? 1 : -1;
+  }
+
+  const videoComments = await Video.aggregatePaginate(
+    Video.aggregate([
+      {
+        $match: {
+          _id: new Types.ObjectId(videoId),
+        },
+      },
+      {
+        $lookup: {
+          from: "comments",
+          localField: "_id",
+          foreignField: "video",
+          as: "comments",
+          pipeline: [
+            {
+              $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "commentor",
+                pipeline: [
+                  {
+                    $project: {
+                      fullName: 1,
+                      username: 1,
+                      avatar: 1,
+                    },
+                  },
+                ],
+              },
+            },
+            {
+              $addFields: {
+                commentor: { $first: "$commentor" },
+              },
+            },
+          ],
+        },
+      },
+      {
+        $sort: sort,
+      },
+    ]),
+    options
+  );
+
+  if (!videoComments) {
+    throw new ApiError(
+      500,
+      "Something went wrong while fetching comments of video"
+    );
   }
 
   return res
-  .status(200)
-  .json(new ApiResponse(200, videoComments, "Video comments fetched successfully"))
-  
+    .status(200)
+    .json(
+      new ApiResponse(200, videoComments, "Video comments fetched successfully")
+    );
 });
 
 const addComment = asyncHandler(async (req, res) => {

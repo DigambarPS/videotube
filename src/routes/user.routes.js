@@ -56,7 +56,7 @@ router.route("/update-coverImage").patch(
 );
 router.route("/renew-access-token").post(renewRefreshAndAccessToken);
 router.route("/get-current-user").get(verifyJWT, getCurrentUser);
-router.route("/c/:username").get(verifyJWT, getUserChannelProfile);
+router.route("/c/:channelId").get(verifyJWT, getUserChannelProfile);
 router.route("/history").get(verifyJWT, getUserWatchHistory);
 
 

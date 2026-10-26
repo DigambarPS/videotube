@@ -4,44 +4,62 @@ import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { deleteFromCloudinary, uploadToCloudinary } from "../utils/cloudinary.js";
+import {
+  deleteFromCloudinary,
+  uploadToCloudinary,
+} from "../utils/cloudinary.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, query, sortBy='createdAt', sortType='asc', userId } = req.query;
-  
+  const {
+    page = 1,
+    limit = 10,
+    query,
+    sortBy = "createdAt",
+    sortType = "asc",
+    userId,
+  } = req.query;
+
   let pageOptions = {
-    page : page,
-    limit : limit
+    page: page,
+    limit: limit,
+  };
+
+  let filter = { isPublished: true };
+  if (query) filter.title = new RegExp(query, "i");
+  if (userId) filter.owner = new mongoose.Types.ObjectId(userId);
+
+  let sort = {};
+  if (sortBy) {
+    sort[sortBy] = sortType === "asc" ? 1 : -1;
   }
 
-  let filter = {isPublished:true}
-  if(query) filter.title = new RegExp(query,"i")
-  if(userId) filter.owner = userId
+  const aggregatePipeline = Video.aggregate([
+    {
+      $match: filter,
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+      },
+    },
+    {
+      $sort: sort,
+    },
+  ]);
+  let videos = await Video.aggregatePaginate(aggregatePipeline, pageOptions);
 
-  let sort = {}
-  if(sortBy)
-  {
-    sort[sortBy] = sortType === 'asc'? 1 : -1
-  }
-
-  let videos = await Video.aggregatePaginate(Video.aggregate([{$match:filter},{$sort:sort}]), pageOptions)
-  
   const videoList = await videos;
-  
-  if(!videoList)
-  {
-    throw new ApiError(500,"Something went wrong while fetching videos")
+
+  if (!videoList) {
+    throw new ApiError(500, "Something went wrong while fetching videos");
   }
 
   return res
-  .status(200)
-  .json(
-    new ApiResponse(
-      200,
-      videoList,
-      "Videos are fetched successfully"
-    )
-  )
+    .status(200)
+    .json(new ApiResponse(200, videoList, "Videos are fetched successfully"));
 });
 
 const publishAVideo = asyncHandler(async (req, res) => {
@@ -84,7 +102,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
     isPublished: true,
     views: 0,
     owner: req.user?._id,
-    cl_public_id: videoUpload.public_id
+    cl_public_id: videoUpload.public_id,
   });
 
   if (!video) {
@@ -103,15 +121,68 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new ApiError(401, "videoId is mandatory");
   }
 
-  const video = await Video.findById(videoId);
+  if(!isValidObjectId(videoId))
+  {
+    throw new ApiError(401, "videoId is invalid");
+  }
 
-  if (!video) {
+  const video = await Video.aggregate([
+    {
+      $match:{_id: new mongoose.Types.ObjectId(videoId)}
+    },
+    {
+      $lookup:{
+        from:'likes',
+        localField:'_id',
+        foreignField:'video',
+        as:'likes'
+      }
+    },
+    {
+      $lookup:{
+        from:'users',
+        localField:'owner',
+        foreignField:'_id',
+        pipeline: [
+        {
+          $lookup:{
+            from:'subscriptions',
+            localField:'_id',
+            foreignField:'channel',
+            as:'subscribers'
+          }
+        },
+        {
+          $addFields:{
+            subscriberCount : {$size:'$subscribers'}
+          }
+        },
+        {
+          $project: {
+            fullName: 1,
+            avatar: 1,
+            subscriberCount:1
+          }
+        }
+      ],
+        as:'owner'
+      }
+    },
+    {
+      $addFields:{
+        totalLikes:{$size:'$likes'},
+        owner:{ $arrayElemAt: ['$owner', 0] }
+      }
+    }
+  ]);
+
+  if (!video[0]) {
     throw new ApiError(404, "video not found");
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, video, "video fetched successfully"));
+    .json(new ApiResponse(200, video[0], "video fetched successfully"));
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
@@ -130,7 +201,7 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(401, "description is mandatory");
   }
 
-  const video = await Video.exists({_id : videoId});
+  const video = await Video.exists({ _id: videoId });
 
   if (!video) {
     throw new ApiError(403, "video not found");
@@ -148,109 +219,90 @@ const updateVideo = asyncHandler(async (req, res) => {
   }
 
   let updateVideoOptions = {
-    title:title,
-    description: description
-  }
+    title: title,
+    description: description,
+  };
 
   if (thumbnailUpload) {
-      updateVideoOptions.thumbnail = thumbnailUpload.secure_url
+    updateVideoOptions.thumbnail = thumbnailUpload.secure_url;
   }
 
-    const videoUpdate = await Video.findByIdAndUpdate(
-      videoId,
-      {
-        $set: updateVideoOptions
-      },
-      {
-        returnDocument: "after",
-      }
-    );
+  const videoUpdate = await Video.findByIdAndUpdate(
+    videoId,
+    {
+      $set: updateVideoOptions,
+    },
+    {
+      returnDocument: "after",
+    }
+  );
 
-  if(!videoUpdate)
-  {
-    throw new ApiError(500, 'Something error while updating video details')
+  if (!videoUpdate) {
+    throw new ApiError(500, "Something error while updating video details");
   }
 
   return res
-  .status(200)
-  .json(
-    new ApiResponse(
-        200,
-        videoUpdate,
-        'Video details updated successfully'
-    )
-  )
+    .status(200)
+    .json(
+      new ApiResponse(200, videoUpdate, "Video details updated successfully")
+    );
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   //TODO: delete video
-  if(!videoId)
-  {
-    throw new ApiError(401, 'videoId is mandatory')
-  }
-  
-  const videoCheck = await Video.findById(videoId)
-
-  if(!videoCheck)
-  {
-    throw new ApiError(403, 'Video is not found')
+  if (!videoId) {
+    throw new ApiError(401, "videoId is mandatory");
   }
 
-  const videoDelete = await Video.findByIdAndDelete(videoId)
+  const videoCheck = await Video.findById(videoId);
 
-  if(!videoDelete)
-  {
-    throw new ApiError(500, 'Something went wrong while deleting video')
+  if (!videoCheck) {
+    throw new ApiError(403, "Video is not found");
   }
 
-  const videoCl = await deleteFromCloudinary(videoCheck.cl_public_id,'video')
+  const videoDelete = await Video.findByIdAndDelete(videoId);
 
-  if(!videoCl)
-  {
-    throw new ApiError(500, 'something went wrong while deleting video from cloudinary')
+  if (!videoDelete) {
+    throw new ApiError(500, "Something went wrong while deleting video");
+  }
+
+  const videoCl = await deleteFromCloudinary(videoCheck.cl_public_id, "video");
+
+  if (!videoCl) {
+    throw new ApiError(
+      500,
+      "something went wrong while deleting video from cloudinary"
+    );
   }
 
   return res
-  .status(200)
-  .json(
-    new ApiResponse(
-        200,
-        {},
-        'Video is deleted successfully'
-    )
-  )
-
+    .status(200)
+    .json(new ApiResponse(200, {}, "Video is deleted successfully"));
 });
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  
-  if(!videoId)
-  {
-    throw new ApiError(401, 'videoId is mandatory')
+
+  if (!videoId) {
+    throw new ApiError(401, "videoId is mandatory");
   }
 
-  const videoCheck = await Video.exists({_id:videoId})
+  const videoCheck = await Video.exists({ _id: videoId });
 
-  if(!videoCheck)
-  {
-    throw new ApiError(404, 'video is not found')
+  if (!videoCheck) {
+    throw new ApiError(404, "video is not found");
   }
 
-  const video = await Video.findByIdAndUpdate(videoId)
-  video.isPublished = !video.isPublished
-  await video.save()
+  const video = await Video.findByIdAndUpdate(videoId);
+  video.isPublished = !video.isPublished;
+  await video.save();
 
   return res
-  .status(200)
-  .json(
-    new ApiResponse(
-        200,
-        video,
-        'Video publish status toggle successful'
-    )
-  )
+    .status(200)
+    .json(
+      new ApiResponse(200, video, "Video publish status toggle successful")
+    );
 });
 
 export {
