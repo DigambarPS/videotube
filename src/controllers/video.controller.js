@@ -154,14 +154,22 @@ const getVideoById = asyncHandler(async (req, res) => {
         },
         {
           $addFields:{
-            subscriberCount : {$size:'$subscribers'}
+            subscriberCount : {$size:'$subscribers'},
+            isSubscribed: {
+            $cond: {
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+            then: true,
+            else: false,
+          },
+        },
           }
         },
         {
           $project: {
             fullName: 1,
             avatar: 1,
-            subscriberCount:1
+            subscriberCount:1,
+            isSubscribed:1
           }
         }
       ],
