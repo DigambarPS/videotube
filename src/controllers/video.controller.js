@@ -128,60 +128,67 @@ const getVideoById = asyncHandler(async (req, res) => {
 
   const video = await Video.aggregate([
     {
-      $match:{_id: new mongoose.Types.ObjectId(videoId)}
+      $match: { _id: new mongoose.Types.ObjectId(videoId) },
     },
     {
-      $lookup:{
-        from:'likes',
-        localField:'_id',
-        foreignField:'video',
-        as:'likes'
-      }
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "video",
+        as: "likes",
+      },
     },
     {
-      $lookup:{
-        from:'users',
-        localField:'owner',
-        foreignField:'_id',
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
         pipeline: [
-        {
-          $lookup:{
-            from:'subscriptions',
-            localField:'_id',
-            foreignField:'channel',
-            as:'subscribers'
-          }
-        },
-        {
-          $addFields:{
-            subscriberCount : {$size:'$subscribers'},
-            isSubscribed: {
+          {
+            $lookup: {
+              from: "subscriptions",
+              localField: "_id",
+              foreignField: "channel",
+              as: "subscribers",
+            },
+          },
+          {
+            $addFields: {
+              subscriberCount: { $size: "$subscribers" },
+              isSubscribed: {
+                $cond: {
+                  if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+                  then: true,
+                  else: false,
+                },
+              },
+            },
+          },
+          {
+            $project: {
+              fullName: 1,
+              avatar: 1,
+              subscriberCount: 1,
+              isSubscribed: 1,
+            },
+          },
+        ],
+        as: "owner",
+      },
+    },
+    {
+      $addFields: {
+        totalLikes: { $size: "$likes" },
+        owner: { $arrayElemAt: ["$owner", 0] },
+        isLiked: {
             $cond: {
-            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+            if: { $in: [req.user?._id, "$likes.likedBy"] },
             then: true,
             else: false,
           },
         },
-          }
-        },
-        {
-          $project: {
-            fullName: 1,
-            avatar: 1,
-            subscriberCount:1,
-            isSubscribed:1
-          }
-        }
-      ],
-        as:'owner'
-      }
+      },
     },
-    {
-      $addFields:{
-        totalLikes:{$size:'$likes'},
-        owner:{ $arrayElemAt: ['$owner', 0] }
-      }
-    }
   ]);
 
   if (!video[0]) {
