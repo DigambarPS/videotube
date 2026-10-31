@@ -8,7 +8,7 @@ import {
   deleteFromCloudinary,
   uploadToCloudinary,
 } from "../utils/cloudinary.js";
-import { getSubscribedChannelsList, getUserSubscribedChannels } from "./user.controller.js";
+import { getSubscribedChannelsList } from "./user.controller.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
   const {
@@ -20,7 +20,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
     userId,
     type
   } = req.query;
-  
+
   let pageOptions = {
     page: page,
     limit: limit,

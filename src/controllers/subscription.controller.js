@@ -179,30 +179,50 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
         from: "subscriptions",
         localField: "_id",
         foreignField: "subscriber",
-        as: "subscribedTo",
-        pipeline: [
-          {
-            $lookup: {
-              from: "users",
-              localField: "channel",
-              foreignField: "_id",
-              as: "subscribedChannels",
-              pipeline: [
-                {
-                  $project: {
-                    fullName: 1,
-                    avatar: 1,
-                  },
-                },
-              ],
-            },
-          },
-        ],
+        as: "subscriptionsList",
+      },
+    },
+    {
+      $unwind: "$subscriptionsList",
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "subscriptionsList.channel",
+        foreignField: "_id",
+        as: "channelDetails",
+      },
+    },
+    {
+      $unwind: "$channelDetails",
+    },
+    {
+      $replaceRoot: {
+        newRoot: "$channelDetails",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $addFields: {
+        subscriberCount: {
+          $size: "$subscribers",
+        },
       },
     },
     {
       $project: {
-        subscribedTo: 1,
+        fullName: 1,
+        username: 1,
+        avatar: 1,
+        about: 1,
+        subscriberCount:1
       },
     },
   ]);
