@@ -5,7 +5,7 @@ import { WatchHistory } from "../models/watchistory.model.js";
 import { uploadToCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-import mongoose from "mongoose";
+import mongoose, { isValidObjectId } from "mongoose";
 
 const registerUser = asyncHandler(async (req, res) => {
   const { username, email, fullName, password } = req.body;
@@ -23,7 +23,7 @@ const registerUser = asyncHandler(async (req, res) => {
   if (userExists) {
     throw new ApiError(409, "User with email or username already exists");
   }
-  console.log(req)
+
   const avatarLocalPath = req.files?.avatar[0]?.path;
   //const coverImageLocalPath = req.files?.coverImage[0]?.path;
 
@@ -130,7 +130,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 
   const options = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // Dynamically handle production vs local
+    secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   };
 
@@ -475,6 +475,120 @@ const getUserWatchHistory = asyncHandler(async (req, res) => {
     );
 });
 
+const getUserSubscribedChannels = asyncHandler(async (req, res) => {
+    // Determine the target user ID from params or internal argument
+    const userIdFinal = req.params.userId;
+    
+    if (!userIdFinal) {
+      throw new ApiError(409, "userId is required");
+    }
+
+    if (!isValidObjectId(userIdFinal)) {
+      throw new ApiError(401, 'Invalid userID');
+    }
+
+    const result = await User.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(userIdFinal),
+        },
+      },
+      {
+        $lookup: {
+          from: "subscriptions",
+          localField: "_id",
+          foreignField: "subscriber",
+          as: "subscriptionsList",
+        },
+      },
+      {
+        $unwind: "$subscriptionsList"
+      },
+      // Lookup the actual channel details using the channel ID from subscriptions
+      {
+        $lookup: {
+          from: "users",
+          localField: "subscriptionsList.channel",
+          foreignField: "_id",
+          as: "channelDetails"
+        }
+      },
+      {
+        $unwind: "$channelDetails"
+      },
+      {
+        $group: {
+          _id: "$_id",
+          // Collect both the IDs (for backend filtering) and full objects (for UI rendering)
+          subscribedChannelIds: { $push: "$subscriptionsList.channel" },
+          subscribedChannelsList: { $push: "$channelDetails" }
+        }
+      }
+    ]);
+
+  if (!result?.length) {
+    if (res) {
+      return res.status(200).json(new ApiResponse(200, [], "No subscriptions found"));
+    }
+    return [];
+  }
+
+  const { subscribedChannelIds, subscribedChannelsList } = result[0];
+
+  if (!req.params.userIdReq) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, subscribedChannelsList, "Subscribed channels fetched successfully")
+      );
+  }
+});
+
+const getSubscribedChannelsList = async (userId) => {
+  if (!userId || !isValidObjectId(userId)) {
+    throw new ApiError(400, "Valid userId is required");
+  }
+
+  const result = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(userId),
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscriptionsList",
+      },
+    },
+    { $unwind: "$subscriptionsList" },
+    {
+      $lookup: {
+        from: "users",
+        localField: "subscriptionsList.channel",
+        foreignField: "_id",
+        as: "channelDetails",
+      },
+    },
+    { $unwind: "$channelDetails" },
+    {
+      $group: {
+        _id: "$_id",
+        subscribedChannelIds: { $push: "$subscriptionsList.channel" },
+        subscribedChannelsList: { $push: "$channelDetails" },
+      },
+    },
+  ]);
+
+  if (!result?.length) {
+    return { subscribedChannelIds: [], subscribedChannelsList: [] };
+  }
+
+  return result[0].subscribedChannelIds;
+};
+
 export {
   registerUser,
   loginUser,
@@ -487,4 +601,6 @@ export {
   getCurrentUser,
   getUserChannelProfile,
   getUserWatchHistory,
+  getUserSubscribedChannels,
+  getSubscribedChannelsList
 };

@@ -8,6 +8,7 @@ import {
   deleteFromCloudinary,
   uploadToCloudinary,
 } from "../utils/cloudinary.js";
+import { getSubscribedChannelsList, getUserSubscribedChannels } from "./user.controller.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
   const {
@@ -17,25 +18,36 @@ const getAllVideos = asyncHandler(async (req, res) => {
     sortBy = "createdAt",
     sortType = "asc",
     userId,
+    type
   } = req.query;
-
+  
   let pageOptions = {
     page: page,
     limit: limit,
   };
 
   let filter = { isPublished: true };
+  let filterUsers = {}
   if (query) filter.title = new RegExp(query, "i");
   if (userId) filter.owner = new mongoose.Types.ObjectId(userId);
+  if(type == 'mySubscriptions')
+  {
+    const userIds = await getSubscribedChannelsList(req.user?._id);
+    if(userIds)
+      filterUsers.owner = { $in: userIds};
+  }
 
   let sort = {};
   if (sortBy) {
     sort[sortBy] = sortType === "asc" ? 1 : -1;
   }
-
+  console.log(filterUsers)
   const aggregatePipeline = Video.aggregate([
     {
-      $match: filter,
+      $match: {
+        ...filter,
+        ...filterUsers
+      }
     },
     {
       $lookup: {
